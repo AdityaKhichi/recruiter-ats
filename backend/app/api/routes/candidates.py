@@ -48,6 +48,23 @@ def _candidate_response_from_orm(cand):
         "updated_at": cand.updated_at,
     }
 
+    # include parsed resume JSON if present, validate/deserialize into ParsedResume
+    if hasattr(cand, "parsed_resume") and cand.parsed_resume is not None:
+        try:
+            from app.schemas.resume_parser import ParsedResume
+
+            parsed = ParsedResume.model_validate(cand.parsed_resume)
+            # return as dict matching the ParsedResume schema
+            data["parsed_resume"] = parsed.model_dump()
+        except Exception:
+            # If DB contains invalid JSON for whatever reason, log and return None
+            import logging
+
+            logging.getLogger(__name__).exception("Invalid parsed_resume JSON for candidate %s", cand.id)
+            data["parsed_resume"] = None
+    else:
+        data["parsed_resume"] = None
+
     # attempt to load metadata sidecar
     if cand.resume_filename:
         metapath = UPLOAD_DIR / f"{Path(cand.resume_filename).stem}.meta.json"
@@ -154,23 +171,33 @@ def upload_candidate_resume(
             # validate ownership and existence
             from app.services.candidate_service import update_candidate as svc_update_candidate
             from app.services.candidate_service import get_candidate as svc_get_candidate
+            from app.services.ai.resume_parser_service import parse_resume
 
             _ = svc_get_candidate(db, candidate_id, actor_id=current_user.id)
-            # compute file size and upload timestamp
-            filesize = dest.stat().st_size
-            from datetime import datetime, timezone
 
-            uploaded_at = datetime.now(timezone.utc)
+            # try to parse the extracted text (best-effort). If parsing fails, log and continue.
+            parsed_json = None
+            try:
+                parsed_json = parse_resume(extracted or "")
+            except Exception as e:
+                logger.exception("Resume parsing failed for candidate %s: %s", candidate_id, e)
+
             svc_update_candidate(
                 db,
                 candidate_id,
                 resume_filename=filename,
                 resume_text=extracted,
+                parsed_resume=parsed_json,
                 actor_id=current_user.id,
             )
+
             # write sidecar metadata file
             import json
 
+            filesize = dest.stat().st_size
+            from datetime import datetime, timezone
+
+            uploaded_at = datetime.now(timezone.utc)
             meta = {"page_count": page_count, "file_size": filesize, "uploaded_at": uploaded_at.isoformat()}
             metapath = UPLOAD_DIR / f"{Path(filename).stem}.meta.json"
             metapath.write_text(json.dumps(meta))
@@ -178,6 +205,7 @@ def upload_candidate_resume(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
         except Exception:
             # fall through to return filename and extracted text even if DB update failed
+            logger.exception("Failed to attach resume to candidate %s", candidate_id)
             pass
 
     # also store extracted text as a companion .txt file for convenience

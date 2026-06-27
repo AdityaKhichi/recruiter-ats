@@ -11,6 +11,7 @@ from typing import Optional
 from sqlalchemy import (
     DateTime,
     Float,
+    JSON,
     ForeignKey,
     Integer,
     String,
@@ -48,6 +49,8 @@ class Candidate(Base):
 
     resume_filename: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     resume_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Parsed resume JSON stored as JSONB (when supported by the DB)
+    parsed_resume: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
     # Note: resume metadata (pages, filesize, uploaded_at) are stored as sidecar
     # files under uploads/; the DB stores filename and extracted text.
 

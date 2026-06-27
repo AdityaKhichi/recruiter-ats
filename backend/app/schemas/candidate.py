@@ -4,6 +4,7 @@ from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
+from app.schemas.resume_parser import ParsedResume
 
 
 class CandidateCreate(BaseModel):
@@ -73,6 +74,7 @@ class CandidateResponse(BaseModel):
     resume_pages: Optional[int] = None
     resume_filesize: Optional[int] = None
     resume_uploaded_at: Optional[str] = None
+    parsed_resume: Optional[ParsedResume] = None
     fit_score: Optional[float] = None
     ai_summary: Optional[str] = None
     job_id: int

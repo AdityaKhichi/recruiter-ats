@@ -114,6 +114,7 @@ def update_candidate(
     fit_score: Optional[float] = None,
     ai_summary: Optional[str] = None,
     actor_id: Optional[int] = None,
+    parsed_resume: Optional[dict] = None,
 ) -> Optional[Candidate]:
     """Update a candidate. Returns updated Candidate or None if not found."""
     cand = db.get(Candidate, candidate_id)
@@ -148,6 +149,9 @@ def update_candidate(
         changed = True
     if ai_summary is not None:
         cand.ai_summary = ai_summary
+        changed = True
+    if parsed_resume is not None:
+        cand.parsed_resume = parsed_resume
         changed = True
 
     if changed:
