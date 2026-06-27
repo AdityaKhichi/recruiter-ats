@@ -48,6 +48,8 @@ class Candidate(Base):
 
     resume_filename: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     resume_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    # Note: resume metadata (pages, filesize, uploaded_at) are stored as sidecar
+    # files under uploads/; the DB stores filename and extracted text.
 
     fit_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
