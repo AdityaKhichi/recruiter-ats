@@ -15,28 +15,22 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-# Prefer DATABASE_URL from a Settings module per project conventions.
-# Fall back to the environment variable if Settings isn't available.
-try:
-    # Attempt to import Settings.DATABASE_URL; allow import failure.
-    from Settings import DATABASE_URL as _DATABASE_URL  # type: ignore
-    DATABASE_URL = _DATABASE_URL
-except Exception:
-    DATABASE_URL = os.getenv("DATABASE_URL")
+from app.core.config import settings
 
-if not DATABASE_URL:
-    raise RuntimeError(
-        "DATABASE_URL must be set (via Settings or environment) before running alembic commands."
-    )
+DATABASE_URL = settings.DATABASE_URL
 
 # Update alembic config so engine_from_config picks it up.
 config.set_main_option("sqlalchemy.url", DATABASE_URL)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
-# from myapp import mymodel
-# target_metadata = mymodel.Base.metadata
-target_metadata = None
+# Import the project's Base and models so Alembic can autogenerate migrations
+from app.core.database import Base as SA_Base
+
+# Import the models package so all models are registered on the Base's metadata
+import app.models  # noqa: F401
+
+target_metadata = SA_Base.metadata
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
