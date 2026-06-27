@@ -51,6 +51,16 @@ class Candidate(Base):
     resume_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     # Parsed resume JSON stored as JSONB (when supported by the DB)
     parsed_resume: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Structured fit score JSON produced by AI scoring (stored as JSONB)
+    fit_score_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Full AI analysis JSON (single structured object) - new column
+    fit_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    # Denormalized fit score fields for quick queries
+    fit_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+    fit_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    fit_strengths: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    fit_gaps: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
+    fit_recommendation: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
     # Note: resume metadata (pages, filesize, uploaded_at) are stored as sidecar
     # files under uploads/; the DB stores filename and extracted text.
 

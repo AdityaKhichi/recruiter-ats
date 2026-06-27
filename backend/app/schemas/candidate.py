@@ -5,6 +5,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, EmailStr, Field, ConfigDict, field_validator
 from app.schemas.resume_parser import ParsedResume
+from app.schemas.fit_score import FitScore
+from app.schemas.fit_analysis import FitAnalysis
 
 
 class CandidateCreate(BaseModel):
@@ -66,16 +68,24 @@ class CandidateUpdate(BaseModel):
 
 class CandidateResponse(BaseModel):
     id: int
-    full_name: str
-    email: EmailStr
-    phone: Optional[str] = None
+    # The structured parsed resume (contains fields like full_name, email, phone, skills, etc.)
+    parsed_resume: Optional[ParsedResume] = None
+
+    # Denormalized fit fields
+    fit_score: Optional[int] = None
+    fit_summary: Optional[str] = None
+    fit_strengths: Optional[List[str]] = None
+    fit_gaps: Optional[List[str]] = None
+    fit_recommendation: Optional[str] = None
+    # Full AI analysis persisted as structured object
+    fit_analysis: Optional[FitAnalysis] = None
+
+    # Raw/extracted resume fields (kept for backward compatibility)
     resume_filename: Optional[str] = None
     resume_text: Optional[str] = None
     resume_pages: Optional[int] = None
     resume_filesize: Optional[int] = None
     resume_uploaded_at: Optional[str] = None
-    parsed_resume: Optional[ParsedResume] = None
-    fit_score: Optional[float] = None
     ai_summary: Optional[str] = None
     job_id: int
     recruiter_id: int

@@ -22,6 +22,9 @@ router = APIRouter()
 
 from pathlib import Path
 from uuid import uuid4
+import logging
+
+logger = logging.getLogger(__name__)
 
 # Directory to store uploads (relative to project root)
 UPLOAD_DIR = Path("uploads")
@@ -35,12 +38,20 @@ def _candidate_response_from_orm(cand):
 
     data = {
         "id": cand.id,
-        "full_name": cand.full_name,
-        "email": cand.email,
-        "phone": cand.phone,
+        # structured parsed resume placed under parsed_resume
+        "parsed_resume": None,
+        # denormalized fit fields
+        "fit_score": cand.fit_score,
+        "fit_summary": cand.fit_summary,
+        "fit_strengths": cand.fit_strengths,
+        "fit_gaps": cand.fit_gaps,
+        "fit_recommendation": cand.fit_recommendation,
+        # raw/extracted resume fields
         "resume_filename": cand.resume_filename,
         "resume_text": cand.resume_text,
-        "fit_score": cand.fit_score,
+        "resume_pages": None,
+        "resume_filesize": None,
+        "resume_uploaded_at": None,
         "ai_summary": cand.ai_summary,
         "job_id": cand.job_id,
         "recruiter_id": cand.recruiter_id,
@@ -86,6 +97,42 @@ def _candidate_response_from_orm(cand):
         data["resume_pages"] = None
         data["resume_filesize"] = None
         data["resume_uploaded_at"] = None
+
+    # include structured fit score if present
+    if hasattr(cand, "fit_score_json") and cand.fit_score_json is not None:
+        try:
+            from app.schemas.fit_score import FitScore
+
+            fit = FitScore.model_validate(cand.fit_score_json)
+            data["fit_score_struct"] = fit.model_dump()
+            # populate denormalized fields for response if present
+            data["fit_score"] = fit.score
+            data["fit_summary"] = fit.summary
+            data["fit_strengths"] = fit.strengths
+            data["fit_gaps"] = fit.gaps
+            try:
+                data["fit_recommendation"] = fit.recommendation.value
+            except Exception:
+                data["fit_recommendation"] = None
+        except Exception:
+            data["fit_score_struct"] = None
+    else:
+        data["fit_score_struct"] = None
+
+    # include full AI analysis if present (new single JSON column)
+    data["fit_analysis"] = None
+    if hasattr(cand, "fit_analysis") and cand.fit_analysis is not None:
+        try:
+            from app.schemas.fit_analysis import FitAnalysis
+
+            fa = FitAnalysis.model_validate(cand.fit_analysis)
+            # return as dict matching the FitAnalysis schema
+            data["fit_analysis"] = fa.model_dump()
+        except Exception:
+            import logging
+
+            logging.getLogger(__name__).exception("Invalid fit_analysis JSON for candidate %s", cand.id)
+            data["fit_analysis"] = None
 
     return CandidateResponse.model_validate(data)
 
@@ -190,6 +237,64 @@ def upload_candidate_resume(
                 parsed_resume=parsed_json,
                 actor_id=current_user.id,
             )
+
+            # If parsed resume is present, compute fit score using the parsed_resume and job
+            if parsed_json is not None:
+                try:
+                    from app.services.ai.fit_score_service import score_candidate
+
+                    # Build a minimal job dict to send to scorer. Use available job fields.
+                    job_dict = {
+                        "title": job.title,
+                        "description": job.description,
+                        "requirements": job.requirements,
+                    }
+                    fit = score_candidate(job_dict, parsed_json)
+                    # store the validated FitScore as JSON — ensure enums are serialized
+                    fit_dict = fit.model_dump()
+                    # normalize recommendation to string if it's an enum
+                    try:
+                        rec = fit.recommendation
+                        rec_val = rec.value if hasattr(rec, "value") else rec
+                    except Exception:
+                        rec_val = None
+                    # ensure fit_dict is JSON serializable
+                    try:
+                        fit_dict["recommendation"] = rec_val
+                    except Exception:
+                        pass
+
+                    # Validate and persist a single structured FitAnalysis object
+                    try:
+                        from app.schemas.fit_analysis import FitAnalysis
+
+                        # validate FitScore -> FitAnalysis shape
+                        fa = FitAnalysis.model_validate(fit.model_dump())
+                        fa_dict = fa.model_dump()
+                        # normalize enum to string for JSON storage
+                        try:
+                            rec = fa.recommendation
+                            fa_dict["recommendation"] = rec.value if hasattr(rec, "value") else rec
+                        except Exception:
+                            pass
+                    except Exception:
+                        # If validation fails, fall back to storing the original fit_dict
+                        fa_dict = fit_dict
+
+                    svc_update_candidate(
+                        db,
+                        candidate_id,
+                        fit_score_json=fit_dict,
+                        fit_score=fit.score,
+                        fit_summary=fit.summary,
+                        fit_strengths=fit.strengths,
+                        fit_gaps=fit.gaps,
+                        fit_recommendation=rec_val,
+                        fit_analysis=fa_dict,
+                        actor_id=current_user.id,
+                    )
+                except Exception as e:
+                    logger.exception("Fit scoring failed for candidate %s: %s", candidate_id, e)
 
             # write sidecar metadata file
             import json
