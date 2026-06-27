@@ -10,14 +10,13 @@ from typing import Optional
 
 from sqlalchemy import (
     DateTime,
-    Float,
-    JSON,
     ForeignKey,
     Integer,
     String,
     Text,
     func,
 )
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -49,22 +48,14 @@ class Candidate(Base):
 
     resume_filename: Mapped[Optional[str]] = mapped_column(String(512), nullable=True)
     resume_text: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    # Parsed resume JSON stored as JSONB (when supported by the DB)
-    parsed_resume: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    # Structured fit score JSON produced by AI scoring (stored as JSONB)
-    fit_score_json: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    # Full AI analysis JSON (single structured object) - new column
-    fit_analysis: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    # Denormalized fit score fields for quick queries
-    fit_score: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
-    fit_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
-    fit_strengths: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    fit_gaps: Mapped[Optional[dict]] = mapped_column(JSON, nullable=True)
-    fit_recommendation: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    # Parsed resume JSON stored as JSONB
+    parsed_resume: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
+    # Full AI analysis JSON (single structured object)
+    fit_analysis: Mapped[Optional[dict]] = mapped_column(JSONB, nullable=True)
     # Note: resume metadata (pages, filesize, uploaded_at) are stored as sidecar
     # files under uploads/; the DB stores filename and extracted text.
 
-    fit_score: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
+    # legacy numeric fit_score removed in favor of fit_analysis
     ai_summary: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     job_id: Mapped[int] = mapped_column(ForeignKey("jobs.id"), nullable=False, index=True)

@@ -19,7 +19,6 @@ def create_candidate(
     phone: Optional[str] = None,
     resume_filename: Optional[str] = None,
     resume_text: Optional[str] = None,
-    fit_score: Optional[float] = None,
     ai_summary: Optional[str] = None,
 ) -> Candidate:
     """Create and persist a Candidate.
@@ -40,7 +39,6 @@ def create_candidate(
         phone=phone,
         resume_filename=resume_filename,
         resume_text=resume_text,
-        fit_score=fit_score,
         ai_summary=ai_summary,
         job_id=job_id,
         recruiter_id=recruiter_id,
@@ -111,14 +109,8 @@ def update_candidate(
     phone: Optional[str] = None,
     resume_filename: Optional[str] = None,
     resume_text: Optional[str] = None,
-    fit_score: Optional[float] = None,
-    fit_summary: Optional[str] = None,
-    fit_strengths: Optional[list] = None,
-    fit_gaps: Optional[list] = None,
-    fit_recommendation: Optional[str] = None,
     actor_id: Optional[int] = None,
     parsed_resume: Optional[dict] = None,
-    fit_score_json: Optional[dict] = None,
     fit_analysis: Optional[dict] = None,
 ) -> Optional[Candidate]:
     """Update a candidate. Returns updated Candidate or None if not found."""
@@ -149,26 +141,9 @@ def update_candidate(
     if resume_text is not None:
         cand.resume_text = resume_text
         changed = True
-    if fit_score is not None:
-        cand.fit_score = fit_score
-        changed = True
-    if fit_summary is not None:
-        cand.fit_summary = fit_summary
-        changed = True
-    if fit_strengths is not None:
-        cand.fit_strengths = fit_strengths
-        changed = True
-    if fit_gaps is not None:
-        cand.fit_gaps = fit_gaps
-        changed = True
-    if fit_recommendation is not None:
-        cand.fit_recommendation = fit_recommendation
-        changed = True
+    # Persist only parsed_resume and fit_analysis for AI outputs
     if parsed_resume is not None:
         cand.parsed_resume = parsed_resume
-        changed = True
-    if fit_score_json is not None:
-        cand.fit_score_json = fit_score_json
         changed = True
     if fit_analysis is not None:
         cand.fit_analysis = fit_analysis

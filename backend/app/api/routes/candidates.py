@@ -40,12 +40,7 @@ def _candidate_response_from_orm(cand):
         "id": cand.id,
         # structured parsed resume placed under parsed_resume
         "parsed_resume": None,
-        # denormalized fit fields
-        "fit_score": cand.fit_score,
-        "fit_summary": cand.fit_summary,
-        "fit_strengths": cand.fit_strengths,
-        "fit_gaps": cand.fit_gaps,
-        "fit_recommendation": cand.fit_recommendation,
+        # (denormalized fit fields removed) full AI analysis returned separately
         # raw/extracted resume fields
         "resume_filename": cand.resume_filename,
         "resume_text": cand.resume_text,
@@ -98,28 +93,7 @@ def _candidate_response_from_orm(cand):
         data["resume_filesize"] = None
         data["resume_uploaded_at"] = None
 
-    # include structured fit score if present
-    if hasattr(cand, "fit_score_json") and cand.fit_score_json is not None:
-        try:
-            from app.schemas.fit_score import FitScore
-
-            fit = FitScore.model_validate(cand.fit_score_json)
-            data["fit_score_struct"] = fit.model_dump()
-            # populate denormalized fields for response if present
-            data["fit_score"] = fit.score
-            data["fit_summary"] = fit.summary
-            data["fit_strengths"] = fit.strengths
-            data["fit_gaps"] = fit.gaps
-            try:
-                data["fit_recommendation"] = fit.recommendation.value
-            except Exception:
-                data["fit_recommendation"] = None
-        except Exception:
-            data["fit_score_struct"] = None
-    else:
-        data["fit_score_struct"] = None
-
-    # include full AI analysis if present (new single JSON column)
+    # include full AI analysis if present (single JSON column)
     data["fit_analysis"] = None
     if hasattr(cand, "fit_analysis") and cand.fit_analysis is not None:
         try:
@@ -156,7 +130,6 @@ def create_candidate(
             phone=req.phone,
             resume_filename=req.resume_filename,
             resume_text=req.resume_text,
-            fit_score=req.fit_score,
             ai_summary=req.ai_summary,
         )
     except PermissionError:
@@ -284,12 +257,6 @@ def upload_candidate_resume(
                     svc_update_candidate(
                         db,
                         candidate_id,
-                        fit_score_json=fit_dict,
-                        fit_score=fit.score,
-                        fit_summary=fit.summary,
-                        fit_strengths=fit.strengths,
-                        fit_gaps=fit.gaps,
-                        fit_recommendation=rec_val,
                         fit_analysis=fa_dict,
                         actor_id=current_user.id,
                     )
@@ -371,7 +338,6 @@ def update_job_candidate(job_id: int, candidate_id: int, req: CandidateUpdate, d
             phone=req.phone,
             resume_filename=req.resume_filename,
             resume_text=req.resume_text,
-            fit_score=req.fit_score,
             ai_summary=req.ai_summary,
             actor_id=current_user.id,
         )
