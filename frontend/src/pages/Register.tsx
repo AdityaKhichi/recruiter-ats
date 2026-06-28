@@ -1,8 +1,13 @@
 import React from 'react'
+import { Link } from 'react-router-dom'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import useAuth from '../hooks/useAuth'
+import Button from '../components/ui/Button'
+import FormField from '../components/ui/FormField'
+import Input from '../components/ui/Input'
+import SectionCard from '../components/ui/SectionCard'
 
 const schema = z.object({
   email: z.string().email('Invalid email'),
@@ -17,65 +22,45 @@ type FormValues = z.infer<typeof schema>
 
 const Register: React.FC = () => {
   const { register: registerAction, isAuthenticated } = useAuth()
-  const { register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<FormValues>({
-    resolver: zodResolver(schema),
-  })
+  const { register, handleSubmit, formState: { errors, isSubmitting }, setError } = useForm<FormValues>({ resolver: zodResolver(schema) })
 
   React.useEffect(() => {
-    if (isAuthenticated) {
-      // redirect handled by AuthProvider on mount; but guard here too
-      window.location.replace('/dashboard')
-    }
+    if (isAuthenticated) window.location.replace('/dashboard')
   }, [isAuthenticated])
 
   const onSubmit = async (data: FormValues) => {
     try {
       await registerAction({ email: data.email, password: data.password })
     } catch (err: any) {
-      // If server returns validation errors, surface them
-      if (err?.response?.data) {
-        const body = err.response.data
-        // Attempt to map known validation shape
-        if (body.errors) {
-          for (const key in body.errors) {
-            setError(key as any, { type: 'server', message: body.errors[key] })
-          }
-          return
-        }
+      if (err?.response?.data?.errors) {
+        for (const key in err.response.data.errors) setError(key as any, { type: 'server', message: err.response.data.errors[key] })
+        return
       }
       setError('email', { type: 'manual', message: err?.message ?? 'Registration failed' })
     }
   }
 
   return (
-    <div className="max-w-md mx-auto mt-16">
-      <div className="bg-white p-8 rounded shadow">
-        <h1 className="text-2xl font-semibold mb-4">Register</h1>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1">Email</label>
-            <input className="w-full border rounded px-3 py-2" {...register('email')} />
-            {errors.email && <p className="text-sm text-red-600 mt-1">{errors.email.message}</p>}
-          </div>
+    <div className="min-h-screen bg-slate-50 lg:grid lg:grid-cols-2">
+      <div className="hidden border-r border-slate-200 bg-white px-12 lg:flex lg:flex-col lg:justify-center">
+        <div className="flex h-12 w-12 items-center justify-center rounded-md bg-slate-950 text-lg font-semibold text-white">R</div>
+        <h1 className="mt-8 max-w-lg text-4xl font-semibold tracking-normal text-slate-950">Recruiter AI</h1>
+        <p className="mt-4 max-w-xl text-base text-slate-600">Create an account to manage roles, candidates, resume uploads, and AI fit analysis in one ATS workspace.</p>
+      </div>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Password</label>
-            <input type="password" className="w-full border rounded px-3 py-2" {...register('password')} />
-            {errors.password && <p className="text-sm text-red-600 mt-1">{errors.password.message}</p>}
-          </div>
+      <div className="flex min-h-screen items-center justify-center px-4 py-10">
+        <SectionCard className="w-full max-w-[420px]">
+          <h1 className="text-2xl font-semibold text-slate-950">Create account</h1>
+          <p className="mt-2 text-sm text-slate-500">Set up your recruiting workspace.</p>
 
-          <div>
-            <label className="block text-sm font-medium mb-1">Confirm Password</label>
-            <input type="password" className="w-full border rounded px-3 py-2" {...register('confirm')} />
-            {errors.confirm && <p className="text-sm text-red-600 mt-1">{errors.confirm.message}</p>}
-          </div>
-
-          <div>
-            <button type="submit" disabled={isSubmitting} className="w-full bg-blue-600 text-white py-2 rounded">
-              {isSubmitting ? 'Registering...' : 'Register'}
-            </button>
-          </div>
-        </form>
+          <form onSubmit={handleSubmit(onSubmit)} className="mt-8 space-y-6">
+            <FormField label="Email" error={errors.email?.message}><Input {...register('email')} /></FormField>
+            <FormField label="Password" error={errors.password?.message}><Input type="password" {...register('password')} /></FormField>
+            <FormField label="Confirm Password" error={errors.confirm?.message}><Input type="password" {...register('confirm')} /></FormField>
+            <Button type="submit" fullWidth disabled={isSubmitting}>{isSubmitting ? 'Registering...' : 'Register'}</Button>
+            <Link to="/login" className="inline-flex h-12 w-full items-center justify-center rounded-md border border-slate-200 bg-white px-4 text-sm font-medium text-slate-700 hover:bg-slate-50">Login</Link>
+          </form>
+        </SectionCard>
       </div>
     </div>
   )

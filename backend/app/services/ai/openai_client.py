@@ -31,17 +31,36 @@ def _init_client() -> Optional[object]:
         # No key configured; leave uninitialized
         return None
 
-    # The classic openai package uses global configuration; set the key and
-    # return the module as the client. Newer official SDKs may expose a
-    # client class — adapt as needed in the future.
+    # Some OpenAI SDK shapes read the API key from the environment. Set it
+    # so newer SDK clients that pick up OPENAI_API_KEY from env will work.
     try:
-        # Some versions use openai.api_key, others expect openai.api_key = ...
-        setattr(openai, "api_key", _OPENAI_API_KEY)
+        os.environ.setdefault("OPENAI_API_KEY", _OPENAI_API_KEY)
     except Exception:
-        # Best-effort; if setting fails, return None so callers know not to use it
-        return None
+        # non-fatal: continue and try to set client-specific attributes
+        pass
 
-    return openai
+    # Prefer constructing a dedicated client when the SDK exposes one (new
+    # OpenAI SDKs expose OpenAI class). Fall back to configuring the module
+    # (older openai package) by setting api_key.
+    try:
+        if hasattr(openai, "OpenAI"):
+            try:
+                # New-style client: instantiate with the API key when supported.
+                return openai.OpenAI(api_key=_OPENAI_API_KEY)
+            except Exception:
+                # If instantiation fails, continue to try module-level config
+                pass
+
+        # Classic module-based client: set api_key attribute
+        try:
+            setattr(openai, "api_key", _OPENAI_API_KEY)
+        except Exception:
+            return None
+
+        return openai
+    except Exception:
+        # If anything unexpected happens, do not crash the app at import time.
+        return None
 
 
 # Singleton client instance (None if not available)

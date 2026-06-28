@@ -24,6 +24,8 @@ from pathlib import Path
 from uuid import uuid4
 import logging
 
+from app.core.config import settings
+
 logger = logging.getLogger(__name__)
 
 # Directory to store uploads (relative to project root)
@@ -176,14 +178,54 @@ def upload_candidate_resume(
     # extract text from the stored PDF
     extracted = ""
     page_count = None
+
+    # Log basic upload diagnostics
+    try:
+        filesize = dest.stat().st_size
+    except Exception:
+        filesize = None
+
+    logger.info("Uploaded resume saved to %s", dest)
+    logger.info("File exists: %s", dest.exists())
+    logger.info("File size: %s", filesize)
+
     try:
         from app.utils.pdf_parser import extract_text_from_pdf
 
         extracted, page_count = extract_text_from_pdf(dest)
-    except Exception:
-        # If extraction fails or parser missing, continue with empty text/page_count
-        extracted = ""
-        page_count = None
+
+        # Log extraction metrics
+        logger.info("PDF page_count: %s", page_count)
+        logger.info("Extracted text length: %s", len(extracted or ""))
+
+        # If extraction produced no text or zero pages, treat as failure so caller can see diagnostics
+        if (page_count is None) or (page_count == 0) or (not (extracted and extracted.strip())):
+            # create and log an exception with context. Use raise/catch so logger.exception includes a stack trace
+            msg = f"PDF extraction produced no text (pages={page_count}, bytes={len(extracted or '')})"
+            try:
+                raise RuntimeError(msg)
+            except Exception as e:
+                logger.exception("PDF extraction failed: %s", e)
+                # During development, surface this as HTTP 500 so failures aren't silently ignored
+                if getattr(settings, "DEBUG", False) or getattr(settings, "APP_ENV", "") == "development":
+                    raise HTTPException(status_code=500, detail=f"PDF extraction failed: {str(e)}")
+                # otherwise continue but keep extracted/text as-is
+
+        else:
+            # successful extraction
+            logger.info(
+                "Resume extracted successfully. Pages=%s Characters=%s",
+                page_count,
+                len(extracted),
+            )
+
+    except Exception as e:
+        # log full exception and re-raise as HTTP 500; include message in logs
+        logger.exception("PDF extraction failed: %s", e)
+        raise HTTPException(
+            status_code=500,
+            detail=f"PDF extraction failed: {str(e)}",
+        )
 
     # if candidate_id provided, update the candidate record (ownership enforced in service)
     if candidate_id is not None:
@@ -200,7 +242,14 @@ def upload_candidate_resume(
             try:
                 parsed_json = parse_resume(extracted or "")
             except Exception as e:
+                # Log full exception. In development surface as HTTP 500 so failures
+                # are visible; in production continue but parsed_json remains None.
                 logger.exception("Resume parsing failed for candidate %s: %s", candidate_id, e)
+                if getattr(settings, "DEBUG", False) or getattr(settings, "APP_ENV", "") == "development":
+                    from fastapi import HTTPException
+
+                    raise HTTPException(status_code=500, detail=f"Resume parsing failed: {e}")
+                parsed_json = None
 
             svc_update_candidate(
                 db,
@@ -213,55 +262,60 @@ def upload_candidate_resume(
 
             # If parsed resume is present, compute fit score using the parsed_resume and job
             if parsed_json is not None:
-                try:
-                    from app.services.ai.fit_score_service import score_candidate
-
-                    # Build a minimal job dict to send to scorer. Use available job fields.
-                    job_dict = {
-                        "title": job.title,
-                        "description": job.description,
-                        "requirements": job.requirements,
-                    }
-                    fit = score_candidate(job_dict, parsed_json)
-                    # store the validated FitScore as JSON — ensure enums are serialized
-                    fit_dict = fit.model_dump()
-                    # normalize recommendation to string if it's an enum
                     try:
-                        rec = fit.recommendation
-                        rec_val = rec.value if hasattr(rec, "value") else rec
-                    except Exception:
-                        rec_val = None
-                    # ensure fit_dict is JSON serializable
-                    try:
-                        fit_dict["recommendation"] = rec_val
-                    except Exception:
-                        pass
+                        from app.services.ai.fit_score_service import score_candidate
 
-                    # Validate and persist a single structured FitAnalysis object
-                    try:
-                        from app.schemas.fit_analysis import FitAnalysis
-
-                        # validate FitScore -> FitAnalysis shape
-                        fa = FitAnalysis.model_validate(fit.model_dump())
-                        fa_dict = fa.model_dump()
-                        # normalize enum to string for JSON storage
+                        # Build a minimal job dict to send to scorer. Use available job fields.
+                        job_dict = {
+                            "title": job.title,
+                            "description": job.description,
+                            "requirements": job.requirements,
+                        }
+                        fit = score_candidate(job_dict, parsed_json)
+                        # store the validated FitScore as JSON — ensure enums are serialized
+                        fit_dict = fit.model_dump()
+                        # normalize recommendation to string if it's an enum
                         try:
-                            rec = fa.recommendation
-                            fa_dict["recommendation"] = rec.value if hasattr(rec, "value") else rec
+                            rec = fit.recommendation
+                            rec_val = rec.value if hasattr(rec, "value") else rec
+                        except Exception:
+                            rec_val = None
+                        # ensure fit_dict is JSON serializable
+                        try:
+                            fit_dict["recommendation"] = rec_val
                         except Exception:
                             pass
-                    except Exception:
-                        # If validation fails, fall back to storing the original fit_dict
-                        fa_dict = fit_dict
 
-                    svc_update_candidate(
-                        db,
-                        candidate_id,
-                        fit_analysis=fa_dict,
-                        actor_id=current_user.id,
-                    )
-                except Exception as e:
-                    logger.exception("Fit scoring failed for candidate %s: %s", candidate_id, e)
+                        # Validate and persist a single structured FitAnalysis object
+                        try:
+                            from app.schemas.fit_analysis import FitAnalysis
+
+                            # validate FitScore -> FitAnalysis shape
+                            fa = FitAnalysis.model_validate(fit.model_dump())
+                            fa_dict = fa.model_dump()
+                            # normalize enum to string for JSON storage
+                            try:
+                                rec = fa.recommendation
+                                fa_dict["recommendation"] = rec.value if hasattr(rec, "value") else rec
+                            except Exception:
+                                pass
+                        except Exception:
+                            # If validation fails, fall back to storing the original fit_dict
+                            fa_dict = fit_dict
+
+                        svc_update_candidate(
+                            db,
+                            candidate_id,
+                            fit_analysis=fa_dict,
+                            actor_id=current_user.id,
+                        )
+                    except Exception as e:
+                        # Log the exception; re-raise in development to make failures visible.
+                        logger.exception("Fit scoring failed for candidate %s: %s", candidate_id, e)
+                        if getattr(settings, "DEBUG", False) or getattr(settings, "APP_ENV", "") == "development":
+                            from fastapi import HTTPException
+
+                            raise HTTPException(status_code=500, detail=f"Fit scoring failed: {e}")
 
             # write sidecar metadata file
             import json

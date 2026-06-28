@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { login as loginRequest, register as registerRequest } from '../services/auth.service'
 import { setAuthToken, setLogoutHandler } from '../api/client'
 import { useQueryClient } from '@tanstack/react-query'
+import { toast } from '../components/Toast'
 
 type Credentials = { email: string; password: string }
 
@@ -71,20 +72,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (cred: Credentials) => {
     try {
-      const data = await registerRequest(cred)
-
-      const maybeToken = (data &&
-        (data.token || data.access_token || data.accessToken || data.jwt || data.data?.access_token || data.data?.token)) ?? null
-
-      if (!maybeToken) {
-        throw new Error('Invalid response from server: missing token')
-      }
-
-      const tokenValue = String(maybeToken)
-      setToken(tokenValue)
-      setAuthToken(tokenValue)
-      setUser((data as any).user ?? null)
-      navigate('/dashboard')
+      // Backend register returns a RegisterResponse (no token). Redirect user to login.
+      await registerRequest(cred)
+      // After successful registration, navigate to login to allow user to sign in.
+      toast('Account created — please sign in', 'success')
+      navigate('/login')
     } catch (err: any) {
       if (err?.response?.status === 400) {
         // bubble validation errors to the caller

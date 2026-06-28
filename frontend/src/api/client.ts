@@ -5,9 +5,8 @@ const baseURL = import.meta.env.VITE_API_URL ?? ''
 
 const apiClient = axios.create({
   baseURL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
+  // Do not set a global Content-Type header here. Let individual requests
+  // or the browser/axios determine the correct Content-Type (e.g. multipart/form-data).
   // withCredentials: true, // enable if your backend uses cookies
 })
 
