@@ -1,0 +1,68 @@
+Aditya Khichi
+adityakhichi763@gmail.com | +91-9039420396
+LinkedIn GitHub
+I am a software engineer with 2+ years of Python backend experience building FastAPI services, data pipelines, and production
+RAG/LLM workflows on AWS. I have worked with PostgreSQL, Redis, Celery, Docker, and CI/CD, and deployed LLM-powered
+features with Azure OpenAI. I enjoy owning end-to-end implementations and collaborating closely with stakeholders to turn
+requirements into reliable systems.
+Skills
+Python
+FastAPI
+Backend development
+Microservices & distributed
+systems
+APIs & REST
+PostgreSQL
+Redis
+Celery
+AWS
+Docker
+LLM orchestration
+RAG
+LangChain
+LangGraph
+NoSQL
+Kafka
+Employment History
+Software Engineer I • Accrete.ai
+Dec 2023 – Feb 2026
+Developed Python-based backend services powering an LLM chat assistant with long-term memory, real-time contextual
+retrieval, and Redis-backed session caching for reliable multi-turn interactions.
+Designed and implemented a PostgreSQL + pgvector retrieval pipeline with LangChain, defining low-level backend
+architecture (chunking strategy, semantic retrieval, ranking) to improve answer relevance.
+Engineered autonomous AI agent workflows in LangGraph with prompt evolution and adaptive response generation, reducing
+multi-step pipeline latency by 40%.
+Optimized Azure OpenAI integration by tuning embeddings and context-window management, cutting LLM inference latency
+from 3 minutes to 30 seconds while maintaining output quality.
+Collaborated with cross-functional teammates on backend design and code reviews, improving code quality, observability,
+and reliability for user-facing AI systems.
+Backend Engineering Intern • Accrete.ai
+Jul 2023 – Nov 2023
+Built FastAPI endpoints in Python for large-scale document processing using Celery workers and Redis as the message broker,
+increasing the reliability of internal data pipelines.
+Implemented Redis caching for frequently accessed document metadata to reduce redundant PostgreSQL reads and improve
+API response latency.
+Wrote pytest unit tests and participated in code reviews to strengthen code quality and deepen understanding of Python async
+patterns and backend design principles.
+Developer • Personal project
+Mar 2026
+ContextMindLM | Built a full-stack distributed RAG platform using Python on AWS ECS Fargate with CloudFront, enabling
+reliable knowledge retrieval across multiple content sources.
+Developed a document ingestion pipeline with asynchronous processing via Celery and Redis task queues and multi-file
+uploads via pre-signed S3 URLs for scalable data onboarding.
+Implemented three retrieval modes—semantic, hybrid (BM25 + vector), and multi-query with configurable chunking,
+thresholds, and reranking to improve retrieval quality and control.
+Designed a LangGraph-based multi-agent orchestration layer to route queries across retrieval, web search, and tool-calling
+agents, adding structured logging, I/O guardrails, and schema validation for better observability and robustness.
+Project links: https://contextmindlm.vercel.app/, https://github.com/AdityaKhichi/ContextMindLM-server
+Developer • Personal project
+May 2026
+Shipyard | Built a self-hosted deployment platform that cloned Git repositories, containerized builds on AWS ECS, and served
+output via S3 for streamlined application deployment.
+Implemented real-time build log streaming using Valkey pub/sub with Socket.IO, removing the need for polling and providing
+immediate feedback during deployments.
+Designed a reverse-proxy layer that dynamically resolved subdomains to the correct S3 bucket, enabling isolated deployments
+without manual DNS configuration and simplifying multi-tenant hosting.
+Project link: https://github.com/AdityaKhichi/Shipyard
+Education
+Bachelor of Engineering in Computer Science and Engineering, Mahakal Institute of Technology, Ujjain

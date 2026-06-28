@@ -7,6 +7,8 @@ services:
       - postgres_data:/var/lib/postgresql/data
     ports:
       - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d recruiter_ai"]
 
   backend:
     build:
@@ -15,14 +17,23 @@ services:
     env_file:
       - backend/.env
     depends_on:
-      - postgres
+      postgres:
+        condition: service_healthy
     ports:
       - "8000:8000"
+    volumes:
+      # Persist uploaded files on the host so uploads survive container restarts
+      - ./backend/uploads:/app/uploads
+    environment:
+      # ensure the app uses the postgres service hostname when running in compose
+      - DATABASE_HOST=postgres
 
   frontend:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+    env_file:
+      - frontend/.env
     depends_on:
       - backend
     ports:
@@ -30,3 +41,4 @@ services:
 
 volumes:
   postgres_data:
+  uploads:
